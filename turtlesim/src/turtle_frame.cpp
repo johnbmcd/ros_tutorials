@@ -35,19 +35,15 @@
 #include <cstdlib>
 #include <ctime>
 
-#define DEFAULT_BG_R 0x45
-#define DEFAULT_BG_G 0x56
-#define DEFAULT_BG_B 0xff
+#define DEFAULT_BG_R 0x00
+#define DEFAULT_BG_G 0x00
+#define DEFAULT_BG_B 0x00
 
 namespace turtlesim
 {
 
-TurtleFrame::TurtleFrame(QWidget* parent, Qt::WindowFlags f)
-: QFrame(parent, f)
-, path_image_(500, 500, QImage::Format_ARGB32)
-, path_painter_(&path_image_)
-, frame_count_(0)
-, id_counter_(0)
+TurtleFrame::TurtleFrame(QWidget *parent, Qt::WindowFlags f)
+    : QFrame(parent, f), path_image_(500, 500, QImage::Format_ARGB32), path_painter_(&path_image_), frame_count_(0), id_counter_(0), first_pass(true)
 {
   setFixedSize(500, 500);
   setWindowTitle("TurtleSim");
@@ -94,16 +90,16 @@ TurtleFrame::TurtleFrame(QWidget* parent, Qt::WindowFlags f)
   spawn_srv_ = nh_.advertiseService("spawn", &TurtleFrame::spawnCallback, this);
   kill_srv_ = nh_.advertiseService("kill", &TurtleFrame::killCallback, this);
 
-  ROS_INFO("Starting turtlesim with node name %s", ros::this_node::getName().c_str()) ;
+  ROS_INFO("Starting turtlesim with node name %s", ros::this_node::getName().c_str());
 
   width_in_meters_ = (width() - 1) / meter_;
   height_in_meters_ = (height() - 1) / meter_;
   spawnTurtle("", width_in_meters_ / 2.0, height_in_meters_ / 2.0, 0);
 
   // spawn all available turtle types
-  if(false)
+  if (false)
   {
-    for(int index = 0; index < turtles.size(); ++index)
+    for (int index = 0; index < turtles.size(); ++index)
     {
       QString name = turtles[index];
       name = name.split(".").first();
@@ -118,7 +114,7 @@ TurtleFrame::~TurtleFrame()
   delete update_timer_;
 }
 
-bool TurtleFrame::spawnCallback(turtlesim::Spawn::Request& req, turtlesim::Spawn::Response& res)
+bool TurtleFrame::spawnCallback(turtlesim::Spawn::Request &req, turtlesim::Spawn::Response &res)
 {
   std::string name = spawnTurtle(req.name, req.x, req.y, req.theta);
   if (name.empty())
@@ -132,7 +128,7 @@ bool TurtleFrame::spawnCallback(turtlesim::Spawn::Request& req, turtlesim::Spawn
   return true;
 }
 
-bool TurtleFrame::killCallback(turtlesim::Kill::Request& req, turtlesim::Kill::Response&)
+bool TurtleFrame::killCallback(turtlesim::Kill::Request &req, turtlesim::Kill::Response &)
 {
   M_Turtle::iterator it = turtles_.find(req.name);
   if (it == turtles_.end())
@@ -147,17 +143,17 @@ bool TurtleFrame::killCallback(turtlesim::Kill::Request& req, turtlesim::Kill::R
   return true;
 }
 
-bool TurtleFrame::hasTurtle(const std::string& name)
+bool TurtleFrame::hasTurtle(const std::string &name)
 {
   return turtles_.find(name) != turtles_.end();
 }
 
-std::string TurtleFrame::spawnTurtle(const std::string& name, float x, float y, float angle)
+std::string TurtleFrame::spawnTurtle(const std::string &name, float x, float y, float angle)
 {
   return spawnTurtle(name, x, y, angle, rand() % turtle_images_.size());
 }
 
-std::string TurtleFrame::spawnTurtle(const std::string& name, float x, float y, float angle, size_t index)
+std::string TurtleFrame::spawnTurtle(const std::string &name, float x, float y, float angle, size_t index)
 {
   std::string real_name = name;
   if (real_name.empty())
@@ -196,7 +192,17 @@ void TurtleFrame::clear()
   nh_.param("background_g", g, g);
   nh_.param("background_b", b, b);
 
-  path_image_.fill(qRgb(r, g, b));
+  if (first_pass)
+  {
+    QString images_path = (ros::package::getPath("turtlesim") + "/images/").c_str();
+
+    QImage tempimage(images_path + "maze.png");
+
+    memcpy(path_image_.bits(), tempimage.bits(), tempimage.byteCount());
+
+    first_pass = false;
+  }
+
   update();
 }
 
@@ -212,7 +218,7 @@ void TurtleFrame::onUpdate()
   }
 }
 
-void TurtleFrame::paintEvent(QPaintEvent*)
+void TurtleFrame::paintEvent(QPaintEvent *)
 {
   QPainter painter(this);
 
@@ -249,15 +255,14 @@ void TurtleFrame::updateTurtles()
   ++frame_count_;
 }
 
-
-bool TurtleFrame::clearCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&)
+bool TurtleFrame::clearCallback(std_srvs::Empty::Request &, std_srvs::Empty::Response &)
 {
   ROS_INFO("Clearing turtlesim.");
   clear();
   return true;
 }
 
-bool TurtleFrame::resetCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&)
+bool TurtleFrame::resetCallback(std_srvs::Empty::Request &, std_srvs::Empty::Response &)
 {
   ROS_INFO("Resetting turtlesim.");
   turtles_.clear();
@@ -267,4 +272,4 @@ bool TurtleFrame::resetCallback(std_srvs::Empty::Request&, std_srvs::Empty::Resp
   return true;
 }
 
-}
+} // namespace turtlesim

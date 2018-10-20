@@ -98,6 +98,8 @@ private:
   float meter_;
   float width_in_meters_;
   float height_in_meters_;
+
+  bool first_pass;
 };
 
 }
